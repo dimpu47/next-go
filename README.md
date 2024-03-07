@@ -15,6 +15,7 @@
 - Type `\l` to list all databases
 - Type `\dt` to list all tables
 - Type `select * from users;` to see the users table
+- Go to `http://localhost:3000` in the browser to see the frontend
 
 ## How to stop
 
