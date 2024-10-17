@@ -149,6 +149,7 @@ jobs:
           # Clone the repository
           git clone https://${{ secrets.GH_PAT_TOKEN }}@github.com/${{ secrets.K8S_REPO }}.git k8s-config
           cd k8s-config/app
+          git pull
           
           # Update backend and frontend images in the manifest files
           sed -i "s|image: .*|image: $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
