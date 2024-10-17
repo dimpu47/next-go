@@ -154,6 +154,7 @@ jobs:
           path: $K8S_REPO_DIR
       - name: update manifests
         run: |
+          ls;pwd
           cd $K8S_REPO_DIR/app
           sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
           sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
