@@ -17,8 +17,6 @@ env:
   GCR_FRONTEND_IMAGE_NAME: gcr.io/${{ secrets.GCR_PROJECT_ID }}/frontend-app
   K8S_REPO: ${{ secrets.K8S_REPO }}  # e.g., git@github.com:username/k8s-config.git
   K8S_REPO_DIR: k8s-config
-  K8S_BACKEND_IMAGE_PLACEHOLDER: "BACKEND_IMAGE_PLACEHOLDER"
-  K8S_FRONTEND_IMAGE_PLACEHOLDER: "FRONTEND_IMAGE_PLACEHOLDER"
 
 jobs:
   # Step 1: Test Backend
@@ -153,8 +151,8 @@ jobs:
           cd k8s-config/app
           
           # Update backend and frontend images in the manifest files
-          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
-          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
+          sed -i "s|image: .*|image: $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
+          sed -i "s|image: .*|image: $DOCKERHUB_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
           
           # Set git configuration
           git config --local user.name "${{ secrets.GH_USER }}"
