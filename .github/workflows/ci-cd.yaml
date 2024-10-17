@@ -149,7 +149,7 @@ jobs:
       - name: Checkout k8s-config repository
         run: |
           git clone $K8S_REPO $K8S_REPO_DIR
-          cd $K8S_REPO_DIR;pwd;ls
+          cd $K8S_REPO_DIR;pwd;ls;ls app
 
       - name: Update Backend Image in K8s Manifests
         run: |
