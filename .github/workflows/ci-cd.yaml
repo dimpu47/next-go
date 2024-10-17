@@ -149,15 +149,15 @@ jobs:
       - name: Checkout k8s-config repository
         run: |
           git clone $K8S_REPO $K8S_REPO_DIR
-          cd $K8S_REPO_DIR
+          cd $K8S_REPO_DIR;pwd;ls
 
       - name: Update Backend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" app/**/*.yaml
+          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" app/backend-deployment.yaml
 
       - name: Update Frontend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" app/**/*.yaml
+          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" app/frontend-deployment.yaml
 
       - name: Commit and Push Changes
         run: |
