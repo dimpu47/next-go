@@ -146,22 +146,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
-      - name: Checkout K8s Repository
-        uses: actions/checkout@v3
-        with:
-          repository: ${{ secrets.K8S_REPO }}
-          token: ${{ secrets.GH_PAT_TOKEN }}
-          path: $K8S_REPO_DIR
-      - name: update manifests
+      - name: Checkout and update manifests
         run: |
-          ls;pwd
-          cd $K8S_REPO_DIR/app
+          # Clone the repository
+          git clone https://${{ secrets.GH_PAT_TOKEN }}@github.com/${{ secrets.K8S_REPO }}.git k8s-config
+          cd k8s-config/app
+          
+          # Update backend and frontend images in the manifest files
           sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
           sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
           
+          # Set git configuration
           git config --local user.name "${{ secrets.GH_USER }}"
           git config --local user.email "${{ secrets.GH_EMAIL }}"
           
+          # Commit and push the changes
           git add .
           git commit -m "Update images to latest build: ${{ github.sha }}"
           git push origin main
