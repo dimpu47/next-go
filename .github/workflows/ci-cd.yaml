@@ -153,12 +153,10 @@ jobs:
 
       - name: Update Backend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:latest|g" **/*.yaml
           sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" **/*.yaml
 
       - name: Update Frontend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:latest|g" **/*.yaml
           sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" **/*.yaml
 
       - name: Commit and Push Changes

@@ -55,7 +55,7 @@ func enableCORS(next http.Handler) http.Handler {
 
 		// Set the CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*") // Allow all origins
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		// If this is a preflight request, options request, then stop here and return
