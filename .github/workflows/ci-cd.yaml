@@ -149,7 +149,7 @@ jobs:
       - name: Checkout K8s Repository
         uses: actions/checkout@v3
         with:
-          repository: $K8S_REPO 
+          repository: ${{ secrets.K8S_REPO }}
           token: ${{ secrets.GH_PAT_TOKEN }}
           path: $K8S_REPO_DIR
       - name: update manifests
