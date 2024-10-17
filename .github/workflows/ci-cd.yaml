@@ -1,0 +1,171 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - ci
+  pull_request:
+    branches:
+      - main
+
+env:
+  DOCKERHUB_BACKEND_IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/backend-app
+  DOCKERHUB_FRONTEND_IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/frontend-app
+  GCR_PROJECT_ID: ${{ secrets.GCR_PROJECT_ID }}
+  GCR_BACKEND_IMAGE_NAME: gcr.io/${{ secrets.GCR_PROJECT_ID }}/backend-app
+  GCR_FRONTEND_IMAGE_NAME: gcr.io/${{ secrets.GCR_PROJECT_ID }}/frontend-app
+  K8S_REPO: ${{ secrets.K8S_REPO }}  # e.g., git@github.com:username/k8s-config.git
+  K8S_REPO_DIR: apps
+  K8S_BACKEND_IMAGE_PLACEHOLDER: "BACKEND_IMAGE_PLACEHOLDER"
+  K8S_FRONTEND_IMAGE_PLACEHOLDER: "FRONTEND_IMAGE_PLACEHOLDER"
+
+jobs:
+  # Step 1: Test Backend
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ./backend/go.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: go test ./...
+
+  # Step 2: Test Frontend
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ./frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run Frontend Tests
+        working-directory: ./frontend
+        run: npm run test
+
+  # Step 3: Build and Push Docker Images (Docker Hub and GCR)
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: 
+      - test-backend
+      - test-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Docker Hub Login
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      # GCR Authentication
+      - name: Authenticate to GCR
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Configure Docker to use GCR
+        run: |
+          gcloud auth configure-docker
+
+      # Build Backend Docker Image
+      - name: Build Backend Docker Image
+        working-directory: ./backend
+        run: |
+          docker build -t $DOCKERHUB_BACKEND_IMAGE_NAME:latest -f go.dockerfile .
+          docker tag $DOCKERHUB_BACKEND_IMAGE_NAME:latest $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}
+          docker tag $DOCKERHUB_BACKEND_IMAGE_NAME:latest $GCR_BACKEND_IMAGE_NAME:latest
+          docker tag $DOCKERHUB_BACKEND_IMAGE_NAME:latest $GCR_BACKEND_IMAGE_NAME:${{ github.sha }}
+
+      # Push Backend Docker Image to Docker Hub
+      - name: Push Backend Docker Image to Docker Hub
+        run: |
+          docker push $DOCKERHUB_BACKEND_IMAGE_NAME:latest
+          docker push $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}
+
+      # Push Backend Docker Image to GCR
+      - name: Push Backend Docker Image to GCR
+        run: |
+          docker push $GCR_BACKEND_IMAGE_NAME:latest
+          docker push $GCR_BACKEND_IMAGE_NAME:${{ github.sha }}
+
+      # Build Frontend Docker Image
+      - name: Build Frontend Docker Image
+        working-directory: ./frontend
+        run: |
+          docker build -t $DOCKERHUB_FRONTEND_IMAGE_NAME:latest -f next.dockerfile .
+          docker tag $DOCKERHUB_FRONTEND_IMAGE_NAME:latest $DOCKERHUB_FRONTEND_IMAGE_NAME:${{ github.sha }}
+          docker tag $DOCKERHUB_FRONTEND_IMAGE_NAME:latest $GCR_FRONTEND_IMAGE_NAME:latest
+          docker tag $DOCKERHUB_FRONTEND_IMAGE_NAME:latest $GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}
+
+      # Push Frontend Docker Image to Docker Hub
+      - name: Push Frontend Docker Image to Docker Hub
+        run: |
+          docker push $DOCKERHUB_FRONTEND_IMAGE_NAME:latest
+          docker push $DOCKERHUB_FRONTEND_IMAGE_NAME:${{ github.sha }}
+
+      # Push Frontend Docker Image to GCR
+      - name: Push Frontend Docker Image to GCR
+        run: |
+          docker push $GCR_FRONTEND_IMAGE_NAME:latest
+          docker push $GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}
+
+  # Step 4: Update K8s Manifests
+  update-k8s-manifests:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Checkout k8s-config repository
+        run: |
+          git clone $K8S_REPO $K8S_REPO_DIR
+          cd $K8S_REPO_DIR
+
+      - name: Update Backend Image in K8s Manifests
+        run: |
+          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:latest|g" **/*.yaml
+          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" **/*.yaml
+
+      - name: Update Frontend Image in K8s Manifests
+        run: |
+          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:latest|g" **/*.yaml
+          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" **/*.yaml
+
+      - name: Commit and Push Changes
+        run: |
+          cd $K8S_REPO_DIR
+          git config --local user.name "GitHub Actions"
+          git config --local user.email "actions@github.com"
+          git add .
+          git commit -m "Update images to latest build: ${{ github.sha }}"
+          git push
