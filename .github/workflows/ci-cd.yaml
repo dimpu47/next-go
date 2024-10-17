@@ -16,7 +16,7 @@ env:
   GCR_BACKEND_IMAGE_NAME: gcr.io/${{ secrets.GCR_PROJECT_ID }}/backend-app
   GCR_FRONTEND_IMAGE_NAME: gcr.io/${{ secrets.GCR_PROJECT_ID }}/frontend-app
   K8S_REPO: ${{ secrets.K8S_REPO }}  # e.g., git@github.com:username/k8s-config.git
-  K8S_REPO_DIR: apps
+  K8S_REPO_DIR: k8s-config
   K8S_BACKEND_IMAGE_PLACEHOLDER: "BACKEND_IMAGE_PLACEHOLDER"
   K8S_FRONTEND_IMAGE_PLACEHOLDER: "FRONTEND_IMAGE_PLACEHOLDER"
 
@@ -150,15 +150,14 @@ jobs:
         run: |
           git clone $K8S_REPO $K8S_REPO_DIR
           cd $K8S_REPO_DIR
-          pwd;ls
 
       - name: Update Backend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
+          sed -i "s|$K8S_BACKEND_IMAGE_PLACEHOLDER|$GCR_BACKEND_IMAGE_NAME:${{ github.sha }}|g" app/**/*.yaml
 
       - name: Update Frontend Image in K8s Manifests
         run: |
-          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
+          sed -i "s|$K8S_FRONTEND_IMAGE_PLACEHOLDER|$GCR_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" app/**/*.yaml
 
       - name: Commit and Push Changes
         run: |
