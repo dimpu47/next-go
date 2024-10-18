@@ -20,51 +20,52 @@ type User struct {
 
 // DB connection
 func main() {
+	// Enable debug mode based on environment variable
+	debugMode := os.Getenv("DEBUG") == "true"
+	if debugMode {
+		log.Println("Debug mode enabled")
+	}
+
 	// Connect to the database
 	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
 	// Create a table if it doesn't exist
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT, email TEXT)")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to create table:", err)
 	}
 
 	// create router with mux
 	router := mux.NewRouter()
-	router.HandleFunc("/api/go/users", getUsers(db)).Methods("GET")
-	router.HandleFunc("/api/go/users/{id}", getUser(db)).Methods("GET")
-	router.HandleFunc("/api/go/users", createUser(db)).Methods("POST")
-	router.HandleFunc("/api/go/users/{id}", updateUser(db)).Methods("PUT")
-	router.HandleFunc("/api/go/users/{id}", deleteUser(db)).Methods("DELETE")
+	router.HandleFunc("/api/go/users", getUsers(db, debugMode)).Methods("GET")
+	router.HandleFunc("/api/go/users/{id}", getUser(db, debugMode)).Methods("GET")
+	router.HandleFunc("/api/go/users", createUser(db, debugMode)).Methods("POST")
+	router.HandleFunc("/api/go/users/{id}", updateUser(db, debugMode)).Methods("PUT")
+	router.HandleFunc("/api/go/users/{id}", deleteUser(db, debugMode)).Methods("DELETE")
 
-	// create a middleware to wrap the router with CORS and JSON content type
-
+	// Wrap the router with CORS and JSON content type middleware
 	enhancedRouter := enableCORS(jsonContentTypeMiddleware(router))
 
 	// Start the server
-	log.Fatal(http.ListenAndServe(":8000", enhancedRouter))
+	log.Printf("Server started on http://0.0.0.0:8000 (Debug mode: %v)", debugMode)
+	log.Fatal(http.ListenAndServe("0.0.0.0:8000", enhancedRouter))
 }
 
 // enableCORS middleware
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// Set the CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*") // Allow all origins
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-		// Handle preflight requests
 		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent) // No content for preflight
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-
-		// Otherwise, call the next handler
 		next.ServeHTTP(w, r)
 	})
 }
@@ -72,143 +73,154 @@ func enableCORS(next http.Handler) http.Handler {
 // jsonContentTypeMiddleware middleware
 func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// Set the JSON content type
 		w.Header().Set("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
 	})
 }
 
-// getUsers handler
-func getUsers(db *sql.DB) http.HandlerFunc {
+// getUsers handler with logging
+func getUsers(db *sql.DB, debug bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get all the users from the database
+		if debug {
+			log.Println("Fetching all users")
+		}
 		rows, err := db.Query("SELECT id, name, email FROM users")
-		// Check for errors
 		if err != nil {
+			log.Printf("Error fetching users: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Close the rows when the function returns
 		defer rows.Close()
 
-		// Create a slice of users
-		users := []User{}
-
-		// Iterate over the rows
+		var users []User
 		for rows.Next() {
 			var user User
-			err := rows.Scan(&user.Id, &user.Name, &user.Email)
-			if err != nil {
+			if err := rows.Scan(&user.Id, &user.Name, &user.Email); err != nil {
+				log.Printf("Error scanning row: %v", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			users = append(users, user)
 		}
-
-		// Return the users as JSON
-
 		json.NewEncoder(w).Encode(users)
+		if debug {
+			log.Println("Successfully fetched users")
+		}
 	}
 }
 
-// getUser handler
-func getUser(db *sql.DB) http.HandlerFunc {
+// getUser handler with logging
+func getUser(db *sql.DB, debug bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get the id from the URL
 		params := mux.Vars(r)
 		id := params["id"]
+		if debug {
+			log.Printf("Fetching user with ID: %s", id)
+		}
 
-		// Get the user from the database
 		var user User
 		err := db.QueryRow("SELECT id, name, email FROM users WHERE id = $1", id).Scan(&user.Id, &user.Name, &user.Email)
 		if err != nil {
+			log.Printf("Error fetching user with ID %s: %v", id, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Return the user as JSON
 		json.NewEncoder(w).Encode(user)
+		if debug {
+			log.Printf("Successfully fetched user with ID: %s", id)
+		}
 	}
 }
 
-// createUser handler
-func createUser(db *sql.DB) http.HandlerFunc {
+// createUser handler with logging
+func createUser(db *sql.DB, debug bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a new user
+		if debug {
+			log.Println("Creating new user")
+		}
+
 		var user User
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
+			log.Printf("Error decoding request body: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Insert the user into the database
 		err = db.QueryRow("INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id", user.Name, user.Email).Scan(&user.Id)
 		if err != nil {
+			log.Printf("Error inserting new user: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(user)
+		if debug {
+			log.Printf("Successfully created user with ID: %d", user.Id)
+		}
+	}
+}
+
+// updateUser handler with logging
+func updateUser(db *sql.DB, debug bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+		if debug {
+			log.Printf("Updating user with ID: %s", id)
+		}
+
+		var user User
+		json.NewDecoder(r.Body).Decode(&user)
+
+		_, err := db.Exec("UPDATE users SET name = $1, email = $2 WHERE id = $3", user.Name, user.Email, id)
+		if err != nil {
+			log.Printf("Error updating user with ID %s: %v", id, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Return the user as JSON
-		json.NewEncoder(w).Encode(user)
-	}
-}
-
-// updateUser handler
-func updateUser(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		// Get the id from the URL
-		var user User
-		json.NewDecoder(r.Body).Decode(&user)
-
-		params := mux.Vars(r)
-		id := params["id"]
-
-		// Update the user in the database
-		_, err := db.Exec("UPDATE users SET name = $1, email = $2 WHERE id = $3", user.Name, user.Email, id)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Retrieve the updated user from the database
 		var updatedUser User
 		err = db.QueryRow("SELECT id, name, email FROM users WHERE id = $1", id).Scan(&updatedUser.Id, &updatedUser.Name, &updatedUser.Email)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error fetching updated user with ID %s: %v", id, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		// Return the updated user as JSON
 		json.NewEncoder(w).Encode(updatedUser)
+		if debug {
+			log.Printf("Successfully updated user with ID: %s", id)
+		}
 	}
 }
 
-// deleteUser handler
-func deleteUser(db *sql.DB) http.HandlerFunc {
+// deleteUser handler with logging
+func deleteUser(db *sql.DB, debug bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get the id from the URL
 		params := mux.Vars(r)
 		id := params["id"]
+		if debug {
+			log.Printf("Deleting user with ID: %s", id)
+		}
 
-		// Delete the user from the database
 		var user User
-		// get the user from the database
 		err := db.QueryRow("SELECT id, name, email FROM users WHERE id = $1", id).Scan(&user.Id, &user.Name, &user.Email)
-
 		if err != nil {
+			log.Printf("Error fetching user with ID %s: %v", id, err)
 			w.WriteHeader(http.StatusNotFound)
 			return
-		} else {
-			// delete the user from the database
-			_, err := db.Exec("DELETE FROM users WHERE id = $1", id)
-			if err != nil {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			// Return a message as JSON
-			json.NewEncoder(w).Encode("User deleted successfully")
+		}
+
+		_, err = db.Exec("DELETE FROM users WHERE id = $1", id)
+		if err != nil {
+			log.Printf("Error deleting user with ID %s: %v", id, err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		json.NewEncoder(w).Encode("User deleted successfully")
+		if debug {
+			log.Printf("Successfully deleted user with ID: %s", id)
 		}
 	}
 }
