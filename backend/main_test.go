@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 
 func TestGetUsers(t *testing.T) {
 	db, mock, err := sqlmock.New()
+	debugMode := os.Getenv("DEBUG") == "true"
 	if err != nil {
 		t.Fatalf("error opening stub database connection: %v", err)
 	}
@@ -37,7 +39,7 @@ func TestGetUsers(t *testing.T) {
 	// Create a ResponseRecorder to capture the response
 	rr := httptest.NewRecorder()
 
-	handler := http.HandlerFunc(getUsers(db))
+	handler := http.HandlerFunc(getUsers(db, debugMode))
 	handler.ServeHTTP(rr, req)
 
 	// Check if the status code is OK
@@ -56,6 +58,7 @@ func TestGetUsers(t *testing.T) {
 
 func TestCreateUser(t *testing.T) {
 	db, mock, err := sqlmock.New()
+	debugMode := os.Getenv("DEBUG") == "true"
 	if err != nil {
 		t.Fatalf("error opening stub database connection: %v", err)
 	}
@@ -75,7 +78,7 @@ func TestCreateUser(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(createUser(db))
+	handler := http.HandlerFunc(createUser(db, debugMode))
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -91,6 +94,7 @@ func TestCreateUser(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 	db, mock, err := sqlmock.New()
+	debugMode := os.Getenv("DEBUG") == "true"
 	if err != nil {
 		t.Fatalf("error opening stub database connection: %v", err)
 	}
@@ -109,9 +113,26 @@ func TestDeleteUser(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
-	router.HandleFunc("/api/go/users/{id}", deleteUser(db)).Methods("DELETE")
+	router.HandleFunc("/api/go/users/{id}", deleteUser(db, debugMode)).Methods("DELETE")
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, `"User deleted successfully"`, strings.TrimSpace(rr.Body.String()))
+}
+
+func TestEnableCORS(t *testing.T) {
+	// Prepare a request with OPTIONS method for CORS
+	req, err := http.NewRequest("OPTIONS", "/api/go/users", nil)
+	assert.NoError(t, err)
+
+	// Create a ResponseRecorder to record the response
+	rr := httptest.NewRecorder()
+	handler := enableCORS(http.NotFoundHandler())
+
+	// Serve the request
+	handler.ServeHTTP(rr, req)
+
+	// Check the CORS headers
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
 }
