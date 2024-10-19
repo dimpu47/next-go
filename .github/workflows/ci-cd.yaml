@@ -149,8 +149,8 @@ jobs:
           git pull
           
           # Update backend and frontend images in the manifest files
-          sed -i "s|image: .*|image: $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
-          sed -i "s|image: .*|image: $DOCKERHUB_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
+          sed -i "s|image: .*backend.*|image: $DOCKERHUB_BACKEND_IMAGE_NAME:${{ github.sha }}|g" backend-deployment.yaml
+          sed -i "s|image: .*frontend.*|image: $DOCKERHUB_FRONTEND_IMAGE_NAME:${{ github.sha }}|g" frontend-deployment.yaml
           
           # Set git configuration
           git config --local user.name "${{ secrets.GH_USER }}"
