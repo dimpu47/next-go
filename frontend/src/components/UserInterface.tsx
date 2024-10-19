@@ -10,6 +10,7 @@ interface User {
 
 interface UserInterfaceProps {
   backendName: string;
+  apiURL?: string;
 }
 
 const UserInterface: React.FC<UserInterfaceProps> = ({ backendName }) => {

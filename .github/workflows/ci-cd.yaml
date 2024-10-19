@@ -68,7 +68,7 @@ jobs:
 
       - name: Run Frontend Tests
         working-directory: ./frontend
-        run: echo "Running tests (dummy)"
+        run: npm test
 
   # Step 3: Build and Push Docker Images (Docker Hub and GCR)
   build-and-push:
