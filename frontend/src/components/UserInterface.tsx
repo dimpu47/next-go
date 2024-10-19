@@ -10,7 +10,6 @@ interface User {
 
 interface UserInterfaceProps {
   backendName: string;
-  apiURL?: string;
 }
 
 const UserInterface: React.FC<UserInterfaceProps> = ({ backendName }) => {
@@ -47,7 +46,7 @@ const UserInterface: React.FC<UserInterfaceProps> = ({ backendName }) => {
 
   useEffect(() => {
     fetchUsers();
-  }, [backendName, apiURL]);
+  }, [backendName]);
 
   // Create a user
   const createUser = async (e: React.FormEvent<HTMLFormElement>) => {
