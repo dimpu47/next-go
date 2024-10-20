@@ -27,7 +27,7 @@
 
 On every push to main ( currently `ci` branch is configured for testing ), we trigger a github workflow that run unit tests ( added testcases to upstream ), build and push contianer images, then finally update the image in [k8s-config](https://github.com/dimpu47/k8s-config) repo.
 
-```
+```mermaid
 graph TD;
     A[Push to main branch] --> B[Run CI/CD Pipeline];
     subgraph Update_Manifest_Step["Update k8s Config"]
