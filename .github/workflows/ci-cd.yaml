@@ -145,7 +145,7 @@ jobs:
         run: |
           # Clone the repository
           git clone https://${{ secrets.GH_PAT_TOKEN }}@github.com/${{ secrets.K8S_REPO }}.git k8s-config
-          cd k8s-config/app
+          cd k8s-config/manifests
           git pull
           
           # Update backend and frontend images in the manifest files
