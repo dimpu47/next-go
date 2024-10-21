@@ -18,6 +18,12 @@ type User struct {
 	Email string `json:"email"`
 }
 
+// HealthCheckResponse struct for detailed health status
+type HealthCheckResponse struct {
+	Status   string `json:"status"`
+	Database string `json:"database"`
+}
+
 // DB connection
 func main() {
 	// Enable debug mode based on environment variable
@@ -51,17 +57,11 @@ func main() {
 	enhancedRouter := enableCORS(jsonContentTypeMiddleware(router))
 
 	// Add the health check endpoint
-	http.HandleFunc("/health", HealthCheckHandler)
+	router.HandleFunc("/health", HealthCheckHandler(db, debugMode)).Methods("GET")
 
 	// Start the server
 	log.Printf("Server started on http://0.0.0.0:8000 (Debug mode: %v)", debugMode)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8000", enhancedRouter))
-}
-
-// HealthCheckHandler responds with a 200 OK status.
-func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
 }
 
 // enableCORS middleware
@@ -85,6 +85,27 @@ func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// HealthCheckHandler responds with detailed health status.
+func HealthCheckHandler(db *sql.DB, debug bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := HealthCheckResponse{Status: "OK"}
+
+		// Check database connectivity
+		err := db.Ping()
+		if err != nil {
+			response.Database = "DOWN"
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Health check failed: Database connection error: %v", err)
+		} else {
+			response.Database = "UP"
+		}
+
+		// Return the JSON response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
 }
 
 // getUsers handler with logging
