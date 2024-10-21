@@ -50,9 +50,18 @@ func main() {
 	// Wrap the router with CORS and JSON content type middleware
 	enhancedRouter := enableCORS(jsonContentTypeMiddleware(router))
 
+	// Add the health check endpoint
+	http.HandleFunc("/health", HealthCheckHandler)
+
 	// Start the server
 	log.Printf("Server started on http://0.0.0.0:8000 (Debug mode: %v)", debugMode)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8000", enhancedRouter))
+}
+
+// HealthCheckHandler responds with a 200 OK status.
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 // enableCORS middleware
